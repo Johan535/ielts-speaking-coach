@@ -1,0 +1,8 @@
+{
+  "api_key": "在这里填入你的 DeepSeek API key（https://platform.deepseek.com 获取）",
+  "base_url": "https://api.deepseek.com",
+  "model": "deepseek-chat",
+  "asr_model": "base",
+  "device": "cpu",
+  "tts_voice": "en-GB-SoniaNeural"
+}

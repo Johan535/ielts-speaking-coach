@@ -1,0 +1,104 @@
+{
+  "topics": [
+    {
+      "name": "Work or Study",
+      "questions": [
+        "Do you work or are you a student?",
+        "Why did you choose this major?",
+        "What do you like most about your studies?",
+        "What do you plan to do after graduation?",
+        "Is there anything you dislike about your job or studies?"
+      ]
+    },
+    {
+      "name": "Hometown",
+      "questions": [
+        "Where is your hometown?",
+        "What do you like most about your hometown?",
+        "Has your hometown changed much in recent years?",
+        "Would you like to live there in the future?",
+        "Is it a good place for young people?"
+      ]
+    },
+    {
+      "name": "Home and Accommodation",
+      "questions": [
+        "Do you live in a house or an apartment?",
+        "What is your favourite room in your home?",
+        "How long have you lived there?",
+        "What would you change about your home?",
+        "Who do you live with?"
+      ]
+    },
+    {
+      "name": "Hobbies and Free Time",
+      "questions": [
+        "What do you do in your free time?",
+        "Do you prefer indoor or outdoor activities?",
+        "What hobbies did you have as a child?",
+        "Do you prefer spending free time alone or with friends?",
+        "Is there a new hobby you would like to try?"
+      ]
+    },
+    {
+      "name": "Food",
+      "questions": [
+        "What kind of food do you like?",
+        "Do you prefer eating at home or in restaurants?",
+        "Can you cook?",
+        "What is a popular dish in your country?",
+        "Has your taste in food changed since you were a child?"
+      ]
+    },
+    {
+      "name": "Sports and Exercise",
+      "questions": [
+        "Do you do any sports?",
+        "How often do you exercise?",
+        "What sports are popular in your country?",
+        "Did you play sports at school?",
+        "Do you prefer watching or playing sports?"
+      ]
+    },
+    {
+      "name": "Music",
+      "questions": [
+        "What kind of music do you like?",
+        "When do you usually listen to music?",
+        "Did you learn to play a musical instrument?",
+        "Do you prefer live music or recorded music?",
+        "Has your taste in music changed over the years?"
+      ]
+    },
+    {
+      "name": "Travel",
+      "questions": [
+        "Do you like travelling?",
+        "What kind of places do you like to visit?",
+        "What was your most memorable trip?",
+        "Do you prefer travelling alone or with others?",
+        "Where would you like to travel in the future?"
+      ]
+    },
+    {
+      "name": "Technology",
+      "questions": [
+        "How often do you use your phone?",
+        "What apps do you use most?",
+        "How has technology changed your daily life?",
+        "Do you prefer reading on paper or on screens?",
+        "Is there any technology you find difficult to use?"
+      ]
+    },
+    {
+      "name": "Daily Routine",
+      "questions": [
+        "What is your daily routine like?",
+        "What time do you usually get up?",
+        "What is the best part of your day?",
+        "Do you prefer mornings or evenings?",
+        "Has your routine changed recently?"
+      ]
+    }
+  ]
+}

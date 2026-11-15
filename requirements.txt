@@ -1,0 +1,7 @@
+openai>=1.30
+faster-whisper>=1.0
+av==13.1.0
+edge-tts>=6.1
+sounddevice>=0.4.6
+numpy>=1.26
+pygame>=2.5
