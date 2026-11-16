@@ -169,6 +169,7 @@ python main.py
 
 - Agent 集成测试（无需麦克风，需 API）：`python agent_test.py` —— 记忆注入 → 规划 → 工具循环 → 评分沉淀全链路（21 项断言）
 - GUI 冒烟测试（无窗口、不调 API）：`python gui_test.py`
+- GUI 端到端实测（真实 API + 麦克风，自动备份还原数据）：`python e2e_gui.py`
 - 语音链路冒烟测试：`python smoke_test.py`
 
 ### 打包分发（M4）
@@ -200,7 +201,7 @@ ielts-speaking-coach/
 │   ├── db.py             # SQLite 五表结构
 │   ├── config.py         # 配置加载（打包版首次运行复制模板）
 │   ├── audio.py          # 麦克风录音（控制台版 + GUI 版 Recorder）
-│   ├── asr.py            # faster-whisper 语音识别
+│   ├── asr.py            # faster-whisper 语音识别（国内镜像自动回退）
 │   ├── tts.py            # edge-tts 语音合成 + 播放
 │   ├── llm.py            # 基础考官（对话 + 评分提示词）
 │   └── question_bank.py  # 题库抽题（避开已用题）
@@ -208,6 +209,7 @@ ielts-speaking-coach/
 ├── docs/使用说明.md      # 新用户快速上手（随 exe 一起发给用户）
 ├── agent_test.py         # Agent 集成测试（无硬件，21 项断言）
 ├── gui_test.py           # GUI 冒烟测试（offscreen 无窗口，不调 API）
+├── e2e_gui.py            # GUI 端到端实测（真实 API+麦克风全链路，自动还原数据）
 ├── smoke_test.py         # 全链路冒烟测试
 ├── gen_icon.py           # 生成应用图标 icon.ico
 ├── build_exe.py          # PyInstaller 打包脚本 → dist/IELTSCoach.exe
