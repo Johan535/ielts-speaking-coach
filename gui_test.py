@@ -181,6 +181,27 @@ def test_first_run_config_missing():
         check("自动打开数据目录", m_start.call_args[0][0] == str(Path("C:/fake")))
 
 
+def test_tts_cleanup():
+    """回归：TTS 固定文件名曾在 Windows 上被 pygame 占用导致下一句合成
+    Permission denied——现在每次唯一文件名 + 播放完立刻 unload，历史文件由
+    cleanup_old_tts 清理（不删当前文件）。"""
+    import tempfile
+
+    from app.tts import cleanup_old_tts
+
+    with tempfile.TemporaryDirectory() as d:
+        d = Path(d)
+        for i in range(3):
+            (d / f"tts_{i}.mp3").write_bytes(b"x")
+        (d / "answer_1.wav").write_bytes(b"y")  # 非 TTS 文件不得误删
+        removed = cleanup_old_tts(d, keep=d / "tts_1.mp3")
+        check("清理 2 个旧 TTS 文件", removed == 2)
+        left = sorted(f.name for f in d.iterdir())
+        check("保留当前文件与录音", left == ["answer_1.wav", "tts_1.mp3"])
+        removed = cleanup_old_tts(d)
+        check("不指定 keep 时全部清理", removed == 1)
+
+
 def main():
     print("== GUI 冒烟测试（offscreen）==")
     app = test_mainwindow()
@@ -189,6 +210,7 @@ def main():
     test_checkin_card()
     test_memory_streak_and_corpus()
     test_first_run_config_missing()
+    test_tts_cleanup()
     print(f"\n全部通过：{PASS} 项断言 ✓")
 
 
