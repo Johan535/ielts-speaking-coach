@@ -121,6 +121,11 @@ class AgentMemory:
             (nxt, corpus_id))
         self.conn.commit()
 
+    def mark_mastered(self, corpus_id: int, mastered: int = 1) -> None:
+        """标记已掌握/取消掌握；已掌握的表达不再出现在到期复习里。"""
+        self.conn.execute("UPDATE corpus SET mastered=? WHERE id=?", (mastered, corpus_id))
+        self.conn.commit()
+
     # ---------------- 统计（给界面/日记用） ----------------
 
     def stats(self) -> dict:
@@ -130,6 +135,46 @@ class AgentMemory:
             "weaknesses": self.conn.execute("SELECT COUNT(*) AS c FROM weaknesses WHERE resolved=0").fetchone()["c"],
             "corpus": self.conn.execute("SELECT COUNT(*) AS c FROM corpus").fetchone()["c"],
         }
+
+    def checkin_streak(self) -> dict:
+        """打卡统计：当前连续天数、最长连续、累计天数、全部打卡日期（升序 ISO 列表）。"""
+        rows = self.conn.execute(
+            "SELECT DISTINCT date FROM checkins WHERE completed=1 ORDER BY date").fetchall()
+        dates = sorted(r["date"] for r in rows)
+        dset = set(dates)
+        total_days = len(dates)
+
+        # 当前连续：今天没打卡就从昨天起算（今天还没练完不算断签）
+        anchor = date.today()
+        if anchor.isoformat() not in dset:
+            anchor -= timedelta(days=1)
+        streak = 0
+        while anchor.isoformat() in dset:
+            streak += 1
+            anchor -= timedelta(days=1)
+
+        # 最长连续：一遍扫描
+        longest = 0
+        run = 0
+        prev = None
+        for iso in dates:
+            d = date.fromisoformat(iso)
+            if prev is not None and (d - prev).days == 1:
+                run += 1
+            else:
+                run = 1
+            longest = max(longest, run)
+            prev = d
+
+        return {"streak": streak, "longest": longest,
+                "total_days": total_days, "dates": dates}
+
+    def corpus_all(self, limit: int = 200) -> list:
+        """全部语料（新版在前），供复习界面展示。"""
+        cur = self.conn.execute(
+            "SELECT id, expression, translation, source, times_reviewed, mastered, "
+            "next_review_at FROM corpus ORDER BY id DESC LIMIT ?", (limit,))
+        return [dict(r) for r in cur.fetchall()]
 
     def close(self):
         self.conn.close()

@@ -9,10 +9,11 @@
 """
 import sys
 import threading
+from datetime import date, timedelta
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QTextCursor
+from PySide6.QtGui import QColor, QPainter, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -26,6 +27,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSpinBox,
+    QTabWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -264,25 +266,95 @@ class SessionWorker(QThread):
         self.session_done.emit()
 
 
-class ReviewDialog(QDialog):
-    """到期表达复习：列出待复习表达，点「已复习」按间隔重复规则排期。"""
+# ---------------- 打卡热力图（M3：streak 可视化） ----------------
+
+class CheckinHeatmap(QWidget):
+    """近 12 周打卡热力图（GitHub 风格）：绿色=已打卡，浅灰=未打卡，顶部标注月份。"""
+
+    CELL = 13
+    GAP = 3
+    WEEKS = 12
+    LABEL_H = 16
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("📚 复习到期表达")
-        self.resize(460, 360)
+        self._dates = set()
+        step = self.CELL + self.GAP
+        self.setFixedSize(self.WEEKS * step + 6, self.LABEL_H + 7 * step + 6)
+
+    def set_dates(self, dates):
+        self._dates = set(dates)
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        today = date.today()
+        start = today - timedelta(days=(self.WEEKS - 1) * 7)
+        start -= timedelta(days=start.weekday())  # 对齐到周一
+        step = self.CELL + self.GAP
+
+        # 月份标注：该列所在周的周一属于新月时标注
+        painter.setPen(QColor("#9aa0a6"))
+        for col in range(self.WEEKS):
+            monday = start + timedelta(days=col * 7)
+            if monday.day <= 7:
+                painter.drawText(col * step + 3, 12, f"{monday.month}月")
+
+        # 格子：行=周一..周日，列=周
+        for col in range(self.WEEKS):
+            for row in range(7):
+                d = start + timedelta(days=col * 7 + row)
+                if d > today:
+                    continue
+                x, y = col * step + 3, self.LABEL_H + row * step
+                color = QColor("#34a853") if d.isoformat() in self._dates else QColor("#e8eaed")
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(color)
+                painter.drawRoundedRect(x, y, self.CELL, self.CELL, 3, 3)
+
+
+class ReviewDialog(QDialog):
+    """语料库：Tab1 到期复习（间隔重复），Tab2 全部语料（可标记掌握）。"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("📚 语料库与复习")
+        self.resize(520, 440)
         self.memory = AgentMemory()
-        self.items = []  # (corpus_id, expression, translation, times)
+        self.items = []       # (corpus_id, expression, translation, times)
+        self.all_items = []   # corpus_all() 的行（dict）
 
         layout = QVBoxLayout(self)
+        tabs = QTabWidget()
+        layout.addWidget(tabs)
+
+        # Tab1：到期复习（间隔重复）
+        w1 = QWidget()
+        l1 = QVBoxLayout(w1)
         self.hint = QLabel()
-        layout.addWidget(self.hint)
+        l1.addWidget(self.hint)
         self.listw = QListWidget()
-        layout.addWidget(self.listw)
+        l1.addWidget(self.listw)
         self.btn_done = QPushButton("✅ 标记已复习（间隔重复：1→3→7→14 天）")
         self.btn_done.clicked.connect(self._mark_reviewed)
-        layout.addWidget(self.btn_done)
+        l1.addWidget(self.btn_done)
+        tabs.addTab(w1, "⏰ 到期复习")
+
+        # Tab2：全部语料（可标记掌握）
+        w2 = QWidget()
+        l2 = QVBoxLayout(w2)
+        self.all_hint = QLabel()
+        l2.addWidget(self.all_hint)
+        self.allw = QListWidget()
+        l2.addWidget(self.allw)
+        self.btn_master = QPushButton("⭐ 标记已掌握 / 取消掌握")
+        self.btn_master.clicked.connect(self._toggle_mastered)
+        l2.addWidget(self.btn_master)
+        tabs.addTab(w2, "📖 全部语料")
+
         self._reload()
+        self._reload_all()
 
     def _reload(self):
         rows = self.memory.conn.execute(
@@ -300,6 +372,17 @@ class ReviewDialog(QDialog):
         if not self.items:
             self.hint.setText("🎉 今天没有到期表达，去练口语吧！")
 
+    def _reload_all(self):
+        self.all_items = self.memory.corpus_all()
+        self.all_hint.setText(
+            f"语料库共 {len(self.all_items)} 条好表达。标记掌握后不再出现在到期复习里。")
+        self.allw.clear()
+        for r in self.all_items:
+            tag = "✅" if r["mastered"] else "📖"
+            item = QListWidgetItem(f"{tag} {r['expression']}  —  {r['translation']}")
+            item.setData(Qt.UserRole, r["id"])
+            self.allw.addItem(item)
+
     def _mark_reviewed(self):
         item = self.listw.currentItem()
         if item is None:
@@ -307,7 +390,19 @@ class ReviewDialog(QDialog):
             return
         cid = item.data(Qt.UserRole)
         self.memory.mark_reviewed(cid)
-        self.listw.takeItem(self.listw.row(item))
+        self._reload()
+
+    def _toggle_mastered(self):
+        item = self.allw.currentItem()
+        if item is None:
+            QMessageBox.information(self, "提示", "请先选中一条表达。")
+            return
+        cid = item.data(Qt.UserRole)
+        row = next((r for r in self.all_items if r["id"] == cid), None)
+        if row is None:
+            return
+        self.memory.mark_mastered(cid, 0 if row["mastered"] else 1)
+        self._reload_all()
         self._reload()
 
     def closeEvent(self, event):
@@ -326,6 +421,7 @@ class MainWindow(QMainWindow):
         self.worker: SessionWorker | None = None
         self._recording = False
         self._build_ui()
+        self._refresh_checkins()
         self._append_system("👋 欢迎！点击右侧「开始练习」，考官会先告诉你今天练什么。")
 
     # ---------- 界面搭建 ----------
@@ -391,7 +487,16 @@ class MainWindow(QMainWindow):
         plan_lay.addWidget(self.btn_start)
         right.addWidget(plan_box)
 
-        self.btn_review = QPushButton("📚 复习到期表达")
+        checkin_box = QGroupBox("🔥 打卡记录")
+        ck_lay = QVBoxLayout(checkin_box)
+        self.lbl_streak = QLabel("连续 0 天 · 累计 0 天 · 最长 0 天")
+        self.lbl_streak.setStyleSheet("color:#5f6368; font-weight:normal;")
+        ck_lay.addWidget(self.lbl_streak)
+        self.heatmap = CheckinHeatmap()
+        ck_lay.addWidget(self.heatmap, alignment=Qt.AlignHCenter)
+        right.addWidget(checkin_box)
+
+        self.btn_review = QPushButton("📚 语料库与复习")
         self.btn_review.setObjectName("secondary")
         self.btn_review.clicked.connect(self._on_review)
         right.addWidget(self.btn_review)
@@ -519,6 +624,18 @@ class MainWindow(QMainWindow):
             f"📁 教练档案：练习 {stats['sessions']} 次 · 弱点 {stats['weaknesses']} 条 · "
             f"语料 {stats['corpus']} 条 · 打卡 {stats['checkins']} 天"
         )
+        self._refresh_checkins()  # 本次打卡已写入，刷新 streak
+
+    def _refresh_checkins(self):
+        """读一次打卡统计（UI 线程短连接，读完即关）。"""
+        mem = AgentMemory()
+        try:
+            s = mem.checkin_streak()
+        finally:
+            mem.close()
+        self.lbl_streak.setText(
+            f"连续 {s['streak']} 天 · 累计 {s['total_days']} 天 · 最长 {s['longest']} 天")
+        self.heatmap.set_dates(s["dates"])
 
     def _on_session_done(self):
         self._reset_controls()

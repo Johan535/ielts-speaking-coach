@@ -90,13 +90,67 @@ def test_review_dialog():
     dlg = gui.ReviewDialog()
     # 只读验证：列表与提示文字一致（不点「已复习」，避免改动真实数据）
     expected = dlg.hint.text()
-    check("复习弹窗可打开", dlg.windowTitle() == "📚 复习到期表达")
+    check("复习弹窗可打开", dlg.windowTitle() == "📚 语料库与复习")
+    check("弹窗含两个页签", dlg.listw is not None and dlg.allw is not None)
     if dlg.items:
         check("复习提示与实际列表一致", f"{len(dlg.items)} 条" in expected)
     else:
         check("复习弹窗空态提示", "没有到期表达" in expected)
     check("复习列表项数一致", dlg.listw.count() == len(dlg.items))
+    check("全部语料列表项数一致", dlg.allw.count() == len(dlg.all_items))
     dlg.close()
+
+
+def test_checkin_card():
+    """M3：打卡卡片——streak 标签与热力图存在，喂假数据后正确更新。"""
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setStyleSheet(gui.STYLE)
+    win = gui.MainWindow()
+    check("打卡热力图存在", win.heatmap is not None)
+    check("streak 标签存在", "连续" in win.lbl_streak.text())
+    # 直接调用刷新函数（构造时已调过一次，这里验证数据驱动更新）
+    win.heatmap.set_dates(["2026-11-14", "2026-11-15", "2026-11-16"])
+    check("热力图接受日期列表", len(win.heatmap._dates) == 3)
+    win.close()
+
+
+def test_memory_streak_and_corpus():
+    """M3 数据层：checkin_streak / corpus_all / mark_mastered（:memory: 库，不碰用户数据）。"""
+    from datetime import date, timedelta
+
+    from app.memory import AgentMemory
+
+    mem = AgentMemory(":memory:")
+    today = date.today()
+    iso = lambda n: (today - timedelta(days=n)).isoformat()
+    # 打卡：3天前、2天前、1天前、今天（连续4天）；6天前、5天前（连续2天，隔断）
+    for n in (6, 5, 3, 2, 1, 0):
+        mem.conn.execute(
+            "INSERT INTO checkins (date, session_id, completed) VALUES (?, 1, 1)", (iso(n),))
+    mem.conn.commit()
+    s = mem.checkin_streak()
+    check("当前连续 4 天", s["streak"] == 4)
+    check("累计 6 天", s["total_days"] == 6)
+    check("最长连续 4 天", s["longest"] == 4)
+    check("日期升序", s["dates"] == sorted(s["dates"]))
+
+    # 断签场景：今天没打卡，从昨天起算
+    mem.conn.execute("DELETE FROM checkins WHERE date=?", (iso(0),))
+    mem.conn.commit()
+    s = mem.checkin_streak()
+    check("今天未打卡不打断连续", s["streak"] == 3)
+
+    # 语料库
+    cid = mem.save_corpus("hit the books", "用功读书", source="dialogue")
+    mem.save_corpus("a piece of cake", "小菜一碟", source="feedback")
+    rows = mem.corpus_all()
+    check("语料共 2 条", len(rows) == 2)
+    check("新语料在前", rows[0]["expression"] == "a piece of cake")
+    mem.mark_mastered(cid, 1)
+    check("标记掌握生效", mem.corpus_all()[1]["mastered"] == 1)
+    mem.mark_mastered(cid, 0)
+    check("取消掌握生效", mem.corpus_all()[1]["mastered"] == 0)
+    mem.close()
 
 
 def test_worker_thread_affinity():
@@ -116,6 +170,8 @@ def main():
     app = test_mainwindow()
     test_review_dialog()
     test_worker_thread_affinity()
+    test_checkin_card()
+    test_memory_streak_and_corpus()
     print(f"\n全部通过：{PASS} 项断言 ✓")
 
 
