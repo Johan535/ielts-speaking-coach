@@ -99,10 +99,23 @@ def test_review_dialog():
     dlg.close()
 
 
+def test_worker_thread_affinity():
+    """回归：SQLite 连接有线程亲和性——SessionWorker 构造时不得在 UI 线程打开连接，
+    必须在 run() 所在的工作线程里创建 AgentMemory（曾导致
+    'SQLite objects created in a thread can only be used in that same thread'）。"""
+    import json as _json
+
+    cfg = _json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+    worker = gui.SessionWorker(cfg, rounds=2)
+    check("构造时不在当前线程打开 SQLite 连接", worker._memory is None)
+    check("构造时未加载题库", worker._bank is None)
+
+
 def main():
     print("== GUI 冒烟测试（offscreen）==")
     app = test_mainwindow()
     test_review_dialog()
+    test_worker_thread_affinity()
     print(f"\n全部通过：{PASS} 项断言 ✓")
 
 

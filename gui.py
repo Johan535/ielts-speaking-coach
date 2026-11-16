@@ -113,8 +113,10 @@ class SessionWorker(QThread):
         super().__init__()
         self.cfg = cfg
         self.rounds = rounds
-        self.memory = AgentMemory()
-        self.bank = QuestionBank()
+        # 注意：AgentMemory（SQLite 连接）不能在 UI 线程创建——
+        # sqlite3 连接有线程亲和性，必须在 run() 所在的工作线程里创建。
+        self._memory = None
+        self._bank = None
         self.record_dir = ROOT / "recordings"
         self.record_dir.mkdir(exist_ok=True)
         self._start = threading.Event()
@@ -143,11 +145,15 @@ class SessionWorker(QThread):
 
     def run(self):
         try:
+            # 工作线程里创建依赖（SQLite 连接有线程亲和性）
+            self._memory = AgentMemory()
+            self._bank = QuestionBank()
             self._run_session()
         except Exception as e:  # 任何异常都不能让程序崩溃
             self.failed.emit(f"{type(e).__name__}: {e}")
         finally:
-            self.memory.close()
+            if self._memory is not None:
+                self._memory.close()
 
     def _say(self, text: str):
         """考官说一句话：推给界面 + 语音朗读（失败退化为纯文字）。"""
@@ -174,25 +180,25 @@ class SessionWorker(QThread):
 
     def _run_session(self):
         # ---- 1. 规划器：今天练什么 ----
-        planner = Planner(self.memory)
-        plan = planner.daily_task(self.bank)
+        planner = Planner(self._memory)
+        plan = planner.daily_task(self._bank)
         topic = plan["topic"]
         self.plan_ready.emit(topic, plan["reason"], plan["due_reviews"])
 
         # ---- 2. 组装 Agent ----
-        first_q = self.bank.next_question(topic) or f"Tell me something about {topic}."
+        first_q = self._bank.next_question(topic) or f"Tell me something about {topic}."
         used = [first_q]
         ctx = {
-            "bank": self.bank,
+            "bank": self._bank,
             "used": used,
             "topic": topic,
             "tool_funcs": build_tool_funcs(
-                {"memory": self.memory, "bank": self.bank, "used": used, "topic": topic}
+                {"memory": self._memory, "bank": self._bank, "used": used, "topic": topic}
             ),
         }
-        agent = ExaminerAgent(self.cfg, self.memory, ctx)
+        agent = ExaminerAgent(self.cfg, self._memory, ctx)
         self._agent = agent
-        session_id = self.memory.start_session(topic)
+        session_id = self._memory.start_session(topic)
         self.status.emit(f"练习开始（第 {session_id} 次）……")
 
         # ---- 3. 考官开场 ----
@@ -244,16 +250,16 @@ class SessionWorker(QThread):
 
         # ---- 5. 评分 → 记忆沉淀 → 打卡 ----
         if answered == 0:
-            self.growth_ready.emit(self.memory.stats())
+            self.growth_ready.emit(self._memory.stats())
             self.status.emit("本次没有作答，未评分；明天再来吧！")
             self.session_done.emit()
             return
 
         self.status.emit("🏁 评分中……")
         fb = agent.feedback()
-        self.memory.finish_session(session_id, answered, fb)
+        self._memory.finish_session(session_id, answered, fb)
         self.feedback_ready.emit(fb)
-        self.growth_ready.emit(self.memory.stats())
+        self.growth_ready.emit(self._memory.stats())
         self.status.emit("练习结束，明天继续！加油！")
         self.session_done.emit()
 
