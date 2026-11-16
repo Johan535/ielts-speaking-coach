@@ -2,8 +2,9 @@
 import sqlite3
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "coach.db"
+from .paths import db_path
+
+DB_PATH = db_path()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS sessions (

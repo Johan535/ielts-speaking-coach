@@ -3,12 +3,12 @@ import json
 import random
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+from . import paths
 
 
 class QuestionBank:
     def __init__(self, path: Path | None = None):
-        path = path or ROOT / "data" / "questions.json"
+        path = path or paths.resource_dir() / "data" / "questions.json"
         with open(path, encoding="utf-8") as f:
             self.data = json.load(f)
         self.topics = self.data["topics"]

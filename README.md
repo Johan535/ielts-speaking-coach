@@ -171,6 +171,18 @@ python main.py
 - GUI 冒烟测试（无窗口、不调 API）：`python gui_test.py`
 - 语音链路冒烟测试：`python smoke_test.py`
 
+### 打包分发（M4）
+
+```powershell
+pip install pyinstaller
+python gen_icon.py     # 生成 icon.ico
+python build_exe.py    # 输出 dist/IELTSCoach.exe（单文件、无黑窗口）
+```
+
+打包后用户数据与配置写在 `%APPDATA%\IELTSCoach`（首次运行自动复制 `config.example.json` 模板并弹窗引导填 key）；只读资源（题库/模板）打进 exe。崩溃自动写 `error.log` 并弹窗提示，方便用户反馈。
+
+发给朋友只需要 `IELTSCoach.exe` + [`docs/使用说明.md`](docs/使用说明.md) 两个文件。详细新用户流程见使用说明。
+
 ---
 
 ## 项目结构
@@ -184,17 +196,21 @@ ielts-speaking-coach/
 │   ├── memory.py         # AgentMemory：弱点档案/语料库/得分/打卡
 │   ├── tools.py          # 4 个工具：查词/存语料/记弱点/取下一题
 │   ├── planner.py        # 每日规划：弱项话题优先 + 到期复习
+│   ├── paths.py          # 路径解析：开发/打包双模式（用户数据 → %APPDATA%）
 │   ├── db.py             # SQLite 五表结构
-│   ├── config.py         # 配置加载
+│   ├── config.py         # 配置加载（打包版首次运行复制模板）
 │   ├── audio.py          # 麦克风录音（控制台版 + GUI 版 Recorder）
 │   ├── asr.py            # faster-whisper 语音识别
 │   ├── tts.py            # edge-tts 语音合成 + 播放
 │   ├── llm.py            # 基础考官（对话 + 评分提示词）
 │   └── question_bank.py  # 题库抽题（避开已用题）
 ├── data/questions.json   # Part 1 题库（10 话题 × 5 题）
+├── docs/使用说明.md      # 新用户快速上手（随 exe 一起发给用户）
 ├── agent_test.py         # Agent 集成测试（无硬件，21 项断言）
 ├── gui_test.py           # GUI 冒烟测试（offscreen 无窗口，不调 API）
 ├── smoke_test.py         # 全链路冒烟测试
+├── gen_icon.py           # 生成应用图标 icon.ico
+├── build_exe.py          # PyInstaller 打包脚本 → dist/IELTSCoach.exe
 ├── config.example.json   # 配置模板
 └── requirements.txt      # 依赖清单
 ```

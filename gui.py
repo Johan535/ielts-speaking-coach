@@ -7,6 +7,7 @@
 
 启动：python main.py --gui
 """
+import os
 import sys
 import threading
 from datetime import date, timedelta
@@ -39,13 +40,15 @@ sys.path.insert(0, str(ROOT))
 from app.config import load_config
 from app.agent import ExaminerAgent
 from app.memory import AgentMemory
+from app import paths
 from app.planner import Planner
 from app.question_bank import QuestionBank
 from app.tools import build_tool_funcs
 from app import asr, tts
 from app.audio import Recorder
 
-RECORD_DIR = ROOT / "recordings"
+# 兼容旧引用：CLI 测试里可能用到
+RECORD_DIR = paths.recordings_dir()
 
 # ---------------- 样式 ----------------
 
@@ -119,8 +122,7 @@ class SessionWorker(QThread):
         # sqlite3 连接有线程亲和性，必须在 run() 所在的工作线程里创建。
         self._memory = None
         self._bank = None
-        self.record_dir = ROOT / "recordings"
-        self.record_dir.mkdir(exist_ok=True)
+        self.record_dir = paths.recordings_dir()
         self._start = threading.Event()
         self._stop = threading.Event()
         self._help = threading.Event()
@@ -677,9 +679,34 @@ class MainWindow(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setStyleSheet(STYLE)
-    win = MainWindow()
+    try:
+        win = MainWindow()
+    except FileNotFoundError as e:
+        # 首次运行没配置：弹窗说明，并打开配置所在目录方便用户编辑
+        QMessageBox.critical(None, "需要配置", str(e))
+        if paths.is_frozen():
+            try:
+                os.startfile(str(paths.user_data_dir()))
+            except Exception:
+                pass
+        sys.exit(1)
     win.show()
-    sys.exit(app.exec())
+    code = 0
+    try:
+        code = app.exec()
+    except Exception as e:
+        # 打包版无控制台：任何崩溃都写日志 + 弹窗，方便用户反馈
+        import traceback
+
+        log = paths.user_data_dir() / "error.log"
+        try:
+            log.write_text(traceback.format_exc(), encoding="utf-8")
+        except Exception:
+            pass
+        QMessageBox.critical(None, "程序出错了",
+                             f"{type(e).__name__}: {e}\n\n详情已写入：\n{log}")
+        code = 1
+    sys.exit(code)
 
 
 if __name__ == "__main__":

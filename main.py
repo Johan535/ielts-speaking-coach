@@ -20,12 +20,13 @@ sys.path.insert(0, str(ROOT))
 from app.config import load_config
 from app.agent import ExaminerAgent
 from app.memory import AgentMemory
+from app import paths
 from app.planner import Planner
 from app.question_bank import QuestionBank
 from app.tools import build_tool_funcs
 from app import audio, asr, tts
 
-RECORD_DIR = ROOT / "recordings"
+RECORD_DIR = paths.recordings_dir()
 
 
 def pretty_feedback(fb):
@@ -146,7 +147,9 @@ def main():
 
 
 if __name__ == "__main__":
-    if "--gui" in sys.argv:
+    if "--cli" in sys.argv:
+        main()
+    elif "--gui" in sys.argv or paths.is_frozen():
         import gui
 
         gui.main()
