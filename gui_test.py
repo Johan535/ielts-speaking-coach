@@ -165,6 +165,22 @@ def test_worker_thread_affinity():
     check("构造时未加载题库", worker._bank is None)
 
 
+def test_first_run_config_missing():
+    """回归：打包版首启缺配置 → 弹「需要配置」框，并调用 os.startfile 打开数据目录。
+    （首启 exit 1 是设计行为，不是崩溃——曾误判。）"""
+    from unittest import mock
+
+    with mock.patch("gui.QMessageBox.critical") as m_crit, \
+         mock.patch("gui.os.startfile") as m_start, \
+         mock.patch("gui.paths.is_frozen", return_value=True), \
+         mock.patch("gui.paths.user_data_dir", return_value=Path("C:/fake")):
+        gui.handle_first_run_missing_config(FileNotFoundError("请填写 api_key"))
+        check("弹出『需要配置』对话框", m_crit.called)
+        check("对话框内容包含引导文案", "请填写 api_key" in m_crit.call_args[0][2])
+        m_start.assert_called_once()
+        check("自动打开数据目录", m_start.call_args[0][0] == str(Path("C:/fake")))
+
+
 def main():
     print("== GUI 冒烟测试（offscreen）==")
     app = test_mainwindow()
@@ -172,6 +188,7 @@ def main():
     test_worker_thread_affinity()
     test_checkin_card()
     test_memory_streak_and_corpus()
+    test_first_run_config_missing()
     print(f"\n全部通过：{PASS} 项断言 ✓")
 
 

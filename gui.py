@@ -676,19 +676,23 @@ class MainWindow(QMainWindow):
         self.chat.moveCursor(QTextCursor.End)
 
 
+def handle_first_run_missing_config(e: FileNotFoundError) -> None:
+    # 首次运行没配置：弹窗说明，并打开配置所在目录方便用户编辑
+    QMessageBox.critical(None, "需要配置", str(e))
+    if paths.is_frozen():
+        try:
+            os.startfile(str(paths.user_data_dir()))
+        except Exception:
+            pass
+
+
 def main():
     app = QApplication(sys.argv)
     app.setStyleSheet(STYLE)
     try:
         win = MainWindow()
     except FileNotFoundError as e:
-        # 首次运行没配置：弹窗说明，并打开配置所在目录方便用户编辑
-        QMessageBox.critical(None, "需要配置", str(e))
-        if paths.is_frozen():
-            try:
-                os.startfile(str(paths.user_data_dir()))
-            except Exception:
-                pass
+        handle_first_run_missing_config(e)
         sys.exit(1)
     win.show()
     code = 0
