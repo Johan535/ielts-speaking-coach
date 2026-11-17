@@ -4,7 +4,7 @@
 
 一个基于 AI 的桌面端雅思口语陪练产品（Windows），用"真人考官式"的语音对话帮你每天开口练口语，并在每次练习后给出雅思四项评分反馈。
 
-> 📥 **立即试用**：<https://github.com/Johan535/ielts-speaking-coach/releases> —— 下载 `IELTSCoach.exe`（Windows 10/11 x64），首启按引导填入 DeepSeek API Key 即可开练（详细 3 步见下方「快速开始」）。
+> 📥 **立即试用**：<https://github.com/Johan535/ielts-speaking-coach/releases> —— 下载 `IELTSCoach.exe`（Windows 10/11 x64），首启按引导填入 DeepSeek API Key 即可开练（详细 3 步见下方「快速开始」）。有问题或建议 → [提交 Issue 反馈](https://github.com/Johan535/ielts-speaking-coach/issues/new/choose) 🗣
 
 ---
 
